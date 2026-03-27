@@ -11,7 +11,6 @@ try:
     admin_pass = st.secrets["ADMIN_PASSWORD"]
     supabase: Client = create_client(url, key)
     
-    # Конфиг телеграма
     tg_token = st.secrets.get("TELEGRAM_BOT_TOKEN")
     tg_chat_id = st.secrets.get("TELEGRAM_CHAT_ID")
 except Exception:
@@ -21,8 +20,6 @@ except Exception:
 # --- ФУНКЦИЯ УВЕДОМЛЕНИЙ ---
 def send_tg_notification(text):
     if tg_token and tg_chat_id:
-        # Добавляем @all (в ТГ это обычно делается через текстовое упоминание, 
-        # если бот имеет права админа или если в группе включены теги)
         full_message = f"📢 @all\n{text}"
         url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
         try:
@@ -48,7 +45,6 @@ def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False
     if amount == 0: return
     actual_amount = -amount if is_writeoff else amount
     
-    # Получаем имя для уведомления
     p_data = supabase.table("profiles").select("name").eq("id", p_id).single().execute()
     u_name = p_data.data['name'] if p_data.data else "Кто-то"
 
@@ -96,16 +92,6 @@ with st.sidebar:
     if st.session_state.authenticated:
         st.divider()
         
-        # ОТМЕНА
-        if logs:
-            last = logs[0]
-            st.warning(f"Последнее: {last['profiles']['name']} - {last['exercise_type']}")
-            if st.button("⬅️ Отменить это", use_container_width=True):
-                supabase.table("workout_logs").delete().eq("id", last['id']).execute()
-                send_tg_notification(f"🔙 Ошибочка вышла! Действие '{last['exercise_type']}' для {last['profiles']['name']} отменено.")
-                st.rerun()
-            st.divider()
-
         # 1. ИГРЫ
         with st.expander("🎲 НАСТРОЙКА ИГР"):
             with st.form("g_form", clear_on_submit=True):
@@ -117,7 +103,7 @@ with st.sidebar:
                     st.session_state.games_config[n_g] = {"ex": n_e, "val": n_v, "type": ex_unit_map.get(n_e)}
                     st.rerun()
         
-        # 2. УПРАЖНЕНИЯ (ВЕРНУЛ!)
+        # 2. УПРАЖНЕНИЯ
         with st.expander("🏋️ УПРАЖНЕНИЯ"):
             with st.form("ex_form", clear_on_submit=True):
                 e_name = st.text_input("Название")
@@ -139,6 +125,16 @@ with st.sidebar:
                 if st.form_submit_button("Добавить"):
                     supabase.table("profiles").insert({"name": p_n}).execute()
                     st.rerun()
+        
+        # --- ОТМЕНА ДЕЙСТВИЯ (ТЕПЕРЬ ВНИЗУ И МАЛЕНЬКАЯ) ---
+        if logs:
+            st.divider()
+            last = logs[0]
+            st.caption(f"Последнее: {last['profiles']['name']} - {last['exercise_type']}")
+            if st.button("⬅️ Отменить"):
+                supabase.table("workout_logs").delete().eq("id", last['id']).execute()
+                send_tg_notification(f"🔙 Отмена: действие '{last['exercise_type']}' для {last['profiles']['name']} удалено.")
+                st.rerun()
 
 # --- ГЛАВНЫЙ ЭКРАН ---
 st.title("💪 Долги по тренировкам")
@@ -190,18 +186,16 @@ if st.session_state.authenticated:
             if st.button("🔥 Раздать долги", type="primary", use_container_width=True):
                 g = st.session_state.games_config[g_name]
                 w_id = next(p['id'] for p in profiles if p['name'] == w_name)
-                # Победа
                 supabase.table("workout_logs").insert({"profile_id": w_id, "exercise_type": "Победа в игре", "amount": 1}).execute()
-                # Долги
                 for p in profiles:
                     if p['id'] != w_id:
                         add_entry(p['id'], g['ex'], g['val'], is_time=(g['type']=="time"), silent=True)
-                send_tg_notification(f"🏆 {w_name} выиграл(а) в '{g_name}'! Всем остальным начислен долг: {g['ex']} {g['val']}.")
+                send_tg_notification(f"🏆 {w_name} выиграл(а) в '{g_name}'! Всем @all начислен долг: {g['ex']} {g['val']}.")
                 st.rerun()
 
 st.divider()
 
-# ТАБЛИЦА
+# ТАБЛИЦА ДОЛГОВ
 st.subheader("📊 Текущие долги")
 summary = {}
 for l in logs:
