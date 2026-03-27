@@ -17,7 +17,7 @@ except Exception:
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
-# Загружаем базовые игры в сессию, если их там еще нет
+# Базовые игры (хранятся в сессии)
 if 'games_config' not in st.session_state:
     st.session_state.games_config = {
         "Игра 1: Отжимания (50)": {"ex": "Отжимания", "val": 50, "type": "count"},
@@ -56,7 +56,7 @@ try:
     ex_types_data = supabase.table("exercise_types").select("name, unit_type").execute().data
     ex_unit_map = {ex['name']: ex['unit_type'] for ex in ex_types_data}
 except:
-    ex_unit_map = {"Планка": "time", "Вис": "time"} # Резерв
+    ex_unit_map = {"Планка": "time", "Вис": "time"}
 
 logs = supabase.table("workout_logs").select("amount, exercise_type, profiles(name)").execute().data
 
@@ -77,7 +77,7 @@ with st.sidebar:
     if st.session_state.authenticated:
         st.divider()
         
-        # 1. НАСТРОЙКА ИГР (Новый блок)
+        # 1. НАСТРОЙКА ИГР
         with st.expander("🎲 НАСТРОЙКА ИГР"):
             with st.form("add_game", clear_on_submit=True):
                 st.write("Создать новую:")
@@ -134,16 +134,30 @@ with st.sidebar:
                     supabase.table("exercise_types").delete().eq("name", name).execute()
                     st.rerun()
 
-    st.divider()
-    if logs:
-        total = sum(l['amount'] for l in logs)
-        st.metric("Общий долг банды", f"{total} ед.")
-
 # --- ГЛАВНЫЙ ЭКРАН ---
 st.title("💪 Долги по тренировкам")
 
+# --- ТОП ПОБЕДИТЕЛЕЙ ---
+if logs:
+    wins = {}
+    for l in logs:
+        if l['exercise_type'] == "Победа в игре":
+            name = l['profiles']['name']
+            wins[name] = wins.get(name, 0) + l['amount']
+    
+    if wins:
+        st.subheader("🏆 Топ победителей")
+        # Сортируем по количеству побед
+        sorted_wins = sorted(wins.items(), key=lambda x: x[1], reverse=True)
+        
+        # Создаем красивые колонки с медалями
+        cols = st.columns(len(sorted_wins))
+        for i, (name, w_count) in enumerate(sorted_wins):
+            medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
+            cols[i].metric(label=f"{medal} {name}", value=f"{w_count}")
+        st.divider()
+
 if st.session_state.authenticated:
-    # СОЗДАЕМ ВКЛАДКИ
     tab1, tab2 = st.tabs(["📝 Ручной ввод", "🎲 Итоги игры"])
     
     # --- ВКЛАДКА 1: РУЧНОЙ ВВОД ---
@@ -180,13 +194,21 @@ if st.session_state.authenticated:
             game_choice = st.selectbox("Какая игра была?", list(st.session_state.games_config.keys()))
             winner_name = st.selectbox("Кто победил?", [p['name'] for p in profiles], key="game_winner")
             
-            if st.button("🔥 Раздать долги", type="primary", use_container_width=True):
+            if st.button("🔥 Записать победу и раздать долги", type="primary", use_container_width=True):
                 g = st.session_state.games_config[game_choice]
                 winner_id = next(p['id'] for p in profiles if p['name'] == winner_name)
+                
+                # 1. Записываем победу победителю
+                supabase.table("workout_logs").insert({
+                    "profile_id": winner_id, "exercise_type": "Победа в игре", "amount": 1
+                }).execute()
+
+                # 2. Раздаем долги остальным
                 for p in profiles:
                     if p['id'] != winner_id:
                         add_entry(p['id'], g['ex'], g['val'], is_time=(g['type']=="time"), silent=True)
-                st.success(f"Всем, кроме победителя ({winner_name}), добавлен долг: {g['ex']} {g['val']}!")
+                
+                st.success(f"🏆 {winner_name} получает победу! Всем остальным добавлен долг: {g['ex']} {g['val']}.")
                 st.rerun()
 
 st.divider()
@@ -197,7 +219,11 @@ if logs:
     summary = {}
     for l in logs:
         name, ex, amt = l['profiles']['name'], l['exercise_type'], l['amount']
-        if "[" in ex or ex == "Списание": continue
+        
+        # Скрываем системные записи (Списания, старые баги и Победы)
+        if "[" in ex or ex == "Списание" or ex == "Победа в игре": 
+            continue
+            
         summary.setdefault(name, {}).setdefault(ex, 0)
         summary[name][ex] += amt
 
