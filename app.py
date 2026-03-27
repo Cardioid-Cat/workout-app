@@ -19,6 +19,15 @@ if 'dev_mode' not in st.session_state:
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
+# --- ДАННЫЕ ИГР (МАССОВЫЕ ДОЛГИ) ---
+GAMES_CONFIG = {
+    "Игра 1: Отжимания (50)": {"ex": "Отжимания", "val": 50, "type": "count"},
+    "Игра 2: Приседания (100)": {"ex": "Приседания", "val": 100, "type": "count"},
+    "Игра 3: Планка (3 мин)": {"ex": "Планка", "val": "3:00", "type": "time"},
+    "Игра 4: Гантели (50)": {"ex": "Гантели", "val": 50, "type": "count"},
+    "Игра 5: Вис (2 мин)": {"ex": "Вис", "val": "2:00", "type": "time"}
+}
+
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def time_to_seconds(t_str):
     try:
@@ -32,118 +41,132 @@ def seconds_to_str(sec):
     m, s = abs(sec) // 60, abs(sec) % 60
     return f"{'-' if sec < 0 else ''}{m}:{s:02d}"
 
-def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False):
+def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False):
     if not st.session_state.authenticated: return
     amount = time_to_seconds(val) if is_time else int(val)
     if amount == 0: return
     if is_writeoff: amount = -amount
+    
     supabase.table("workout_logs").insert({
         "profile_id": p_id, "exercise_type": ex_name, "amount": amount
     }).execute()
-    st.rerun()
+    
+    if not silent: st.rerun()
 
 # --- ЗАГРУЗКА ДАННЫХ ---
 profiles = supabase.table("profiles").select("*").order("name").execute().data
 ex_types = supabase.table("exercise_types").select("*").order("name").execute().data
 ex_unit_map = {ex['name']: ex.get('unit_type', 'count') for ex in ex_types}
+logs = supabase.table("workout_logs").select("amount, exercise_type, profiles(name)").execute().data
 
 # --- БОКОВОЕ МЕНЮ ---
 with st.sidebar:
-    st.header("📋 Меню")
-    st.write("Здесь будет статистика (скоро)")
-    
-    # Скрытое управление участниками и упражнениями
+    st.header("📊 Статистика")
+    if logs:
+        # Общий счетчик всех активных долгов
+        total_debt_count = sum(l['amount'] for l in logs)
+        if total_debt_count > 0:
+            st.metric("Всего долгов в системе", f"{total_debt_count} ед.")
+        
+        # Кто больше всех списал за все время
+        successful_workouts = [l for l in logs if l['amount'] < 0]
+        if successful_workouts:
+            daily_stats = {}
+            for l in successful_workouts:
+                name = l['profiles']['name']
+                daily_stats[name] = daily_stats.get(name, 0) + abs(l['amount'])
+            champ = max(daily_stats, key=daily_stats.get)
+            st.success(f"🏆 Главный качок: **{champ}**")
+
     if st.session_state.authenticated:
         st.divider()
         st.subheader("⚙️ Управление")
-        
         with st.expander("👤 Участники"):
             with st.form("add_user", clear_on_submit=True):
                 new_u = st.text_input("Имя")
-                if st.form_submit_button("Добавить"):
-                    if new_u:
-                        supabase.table("profiles").insert({"name": new_u}).execute()
-                        st.rerun()
+                if st.form_submit_button("Добавить") and new_u:
+                    supabase.table("profiles").insert({"name": new_u}).execute()
+                    st.rerun()
             for p in profiles:
                 if st.button(f"🗑 {p['name']}", key=f"u_{p['id']}"):
                     supabase.table("profiles").delete().eq("id", p['id']).execute()
                     st.rerun()
 
         with st.expander("🏋️ Упражнения"):
-            with st.form("add_ex", clear_on_submit=True):
-                en = st.text_input("Название")
-                et = st.radio("Тип", ["Раз", "Время"])
-                if st.form_submit_button("Создать"):
-                    u = "time" if et == "Время" else "count"
-                    if en:
-                        supabase.table("exercise_types").insert({"name": en, "unit_type": u}).execute()
-                        st.rerun()
             for name in ex_unit_map.keys():
                 if st.button(f"🗑 {name}", key=f"ex_{name}"):
                     supabase.table("exercise_types").delete().eq("name", name).execute()
                     st.rerun()
 
-    # Футер сайдбара с кнопкой активации
     st.divider()
     if not st.session_state.authenticated:
         if st.button("🛠 Режим разработчика"):
             st.session_state.dev_mode = not st.session_state.dev_mode
-        
         if st.session_state.dev_mode:
-            pwd = st.text_input("Введите пароль", type="password")
+            pwd = st.text_input("Пароль", type="password")
             if pwd == admin_pass:
                 st.session_state.authenticated = True
                 st.session_state.dev_mode = False
                 st.rerun()
-            elif pwd:
-                st.error("Неверный пароль")
     else:
-        if st.button("🔴 Выйти из режима админа"):
+        if st.button("🔴 Выйти"):
             st.session_state.authenticated = False
             st.rerun()
 
 # --- ГЛАВНЫЙ ИНТЕРФЕЙС ---
 st.title("💪 Трекер долгов")
 
-# Интерфейс внесения долгов (только для админа)
 if st.session_state.authenticated:
-    st.subheader("📝 Внести изменения")
-    user_name = st.selectbox("Кто тренируется?", [p['name'] for p in profiles])
-    user_id = next(p['id'] for p in profiles if p['name'] == user_name)
-
-    cols = st.columns(3)
-    for i, name in enumerate(ex_unit_map.keys()):
-        with cols[i % 3]:
-            if st.button(name, use_container_width=True):
-                st.session_state.active_ex = name
-
-    if "active_ex" in st.session_state:
-        active = st.session_state.active_ex
-        u_type = ex_unit_map.get(active, "count")
+    tab1, tab2 = st.tabs(["📝 Ручной ввод", "🎲 Итоги игры"])
+    
+    with tab1:
+        user_name = st.selectbox("Кто тренируется?", [p['name'] for p in profiles], key="manual_user")
+        user_id = next(p['id'] for p in profiles if p['name'] == user_name)
+        cols = st.columns(3)
+        for i, name in enumerate(ex_unit_map.keys()):
+            with cols[i % 3]:
+                if st.button(name, use_container_width=True, key=f"btn_{name}"):
+                    st.session_state.active_ex = name
         
-        with st.container(border=True):
-            st.write(f"Упражнение: **{active}**")
-            if u_type == "time":
-                val = st.text_input("Время (мин:сек)", placeholder="1:30")
-            else:
-                val = st.number_input("Количество", min_value=1, step=5)
+        if "active_ex" in st.session_state:
+            active = st.session_state.active_ex
+            u_type = ex_unit_map.get(active, "count")
+            with st.container(border=True):
+                st.write(f"Упражнение: **{active}**")
+                val = st.text_input("Значение", placeholder="1:30 или 50")
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("➕ Добавить", type="primary", use_container_width=True):
+                        add_entry(user_id, active, val, is_time=(u_type=="time"))
+                with c2:
+                    if st.button("✅ Списать", use_container_width=True):
+                        add_entry(user_id, active, val, is_time=(u_type=="time"), is_writeoff=True)
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("➕ Добавить", type="primary", use_container_width=True):
-                    add_entry(user_id, active, val, is_time=(u_type=="time"))
-            with c2:
-                if st.button("✅ Списать", use_container_width=True):
-                    add_entry(user_id, active, val, is_time=(u_type=="time"), is_writeoff=True)
+    with tab2:
+        st.subheader("Быстрое начисление за игру")
+        game_choice = st.selectbox("Выберите игру:", list(GAMES_CONFIG.keys()))
+        winner_name = st.selectbox("Кто победил?", [p['name'] for p in profiles])
+        
+        if st.button("🔥 Начислить долги проигравшим", type="primary", use_container_width=True):
+            game = GAMES_CONFIG[game_choice]
+            winner_id = next(p['id'] for p in profiles if p['name'] == winner_name)
+            
+            # Начисляем всем, кроме победителя
+            losers = [p for p in profiles if p['id'] != winner_id]
+            for loser in losers:
+                add_entry(loser['id'], game['ex'], game['val'], 
+                          is_time=(game['type']=="time"), silent=True)
+            
+            st.success(f"Долги за '{game_choice}' начислены всем, кроме {winner_name}!")
+            st.rerun()
+
 else:
-    st.info("ℹ️ Режим просмотра. Список актуальных долгов представлен ниже.")
+    st.info("ℹ️ Режим просмотра. Таблица долгов ниже.")
 
 st.divider()
 
-# --- ТАБЛИЦА ДОЛГОВ (ВИДНА ВСЕМ) ---
-st.subheader("📊 Текущие долги")
-logs = supabase.table("workout_logs").select("amount, exercise_type, profiles(name)").execute().data
-
+# --- ТАБЛИЦА ДОЛГОВ ---
+st.subheader("📊 Актуальные долги")
 if logs:
     summary = {}
     for l in logs:
@@ -161,4 +184,4 @@ if logs:
                     disp = seconds_to_str(total) if u == "time" else total
                     st.write(f"**{ex}**: {disp}")
 else:
-    st.write("Долгов нет. Все красавчики!")
+    st.write("Долгов нет.")
