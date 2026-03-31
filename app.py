@@ -207,9 +207,9 @@ with st.sidebar:
                     send_tg_notification(f"🔙 Отмена: '{last['exercise_type']}' для {last['profiles']['name']} удалена.")
                     st.rerun()
 
-# --- ГЛАВНЫЙ ЭКРАН ---
+# --- ГЛАВНЫЙ ЭКРАН (АДМИН-ПАНЕЛЬ) ---
 if st.session_state.get(auth_key):
-    tab1, tab2, tab3 = st.tabs(["📝 Ввод", "🎲 Игра", "🏆 Зал славы"])
+    tab1, tab2 = st.tabs(["📝 Ввод", "🎲 Игра"])
     
     with tab1:
         u_names = [p['name'] for p in profiles]
@@ -254,21 +254,28 @@ if st.session_state.get(auth_key):
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
 
-    with tab3:
-        st.subheader("🥇 Рейтинг чемпионов")
-        hof = {}
-        for l in logs:
-            if "🏆" in l['exercise_type']:
-                n = l['profiles']['name']
-                hof[n] = hof.get(n, 0) + 1
-        if hof:
-            sorted_hof = sorted(hof.items(), key=lambda x: x[1], reverse=True)
-            for i, (name, count) in enumerate(sorted_hof):
-                medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
-                st.write(f"{medal} **{name}**: {plural_wins(count)}")
-        else: st.info("Побед пока нет.")
-
+# --- ПУБЛИЧНЫЙ БЛОК (ВИДЯТ ВСЕ) ---
 st.divider()
+
+# Зал славы (публичный)
+st.subheader("🥇 Рейтинг чемпионов")
+hof = {}
+for l in logs:
+    if "🏆" in l['exercise_type']:
+        n = l['profiles']['name']
+        hof[n] = hof.get(n, 0) + 1
+
+if hof:
+    sorted_hof = sorted(hof.items(), key=lambda x: x[1], reverse=True)
+    cols_hof = st.columns(len(sorted_hof) if len(sorted_hof) < 5 else 5)
+    for i, (name, count) in enumerate(sorted_hof):
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
+        with cols_hof[i % 5]:
+            st.metric(label=f"{medal} {name}", value=count)
+else:
+    st.info("Побед пока нет.")
+
+# Текущие долги (публичные)
 st.subheader("📊 Текущие долги")
 summary = {}
 for l in logs:
@@ -281,6 +288,8 @@ for name, debts in summary.items():
     active = {k: v for k, v in debts.items() if v != 0}
     if active:
         with st.expander(f"👤 {name}", expanded=True):
-            for ex, total in active.items():
+            cols_d = st.columns(3)
+            for j, (ex, total) in enumerate(active.items()):
                 val = seconds_to_str(total) if ex_unit_map.get(ex) == "time" else total
-                st.write(f"**{ex}**: {val}")
+                with cols_d[j % 3]:
+                    st.write(f"**{ex}**: {val}")
