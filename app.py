@@ -5,34 +5,35 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- МЕТОД "ВЫНОС КНОПКИ ЗА ПРЕДЕЛЫ ХЕДЕРА" ---
+# --- МЕТОД ТОЧЕЧНОЙ ПРОЗРАЧНОСТИ ---
 hide_st_style = """
 <style>
-/* 1. Полностью скрываем весь стандартный хедер (вместе со всеми кнопками) */
+/* 1. Скрываем стандартное меню (три точки) и футер */
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+
+/* 2. Делаем весь хедер прозрачным, чтобы он не перекрывал контент */
 header[data-testid="stHeader"] {
-    display: none !important;
+    background-color: rgba(0,0,0,0) !important;
+    color: rgba(0,0,0,0) !important;
 }
 
-/* 2. Убираем футер и главное меню */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+/* 3. Делаем невидимыми ВСЕ кнопки в хедере... */
+header[data-testid="stHeader"] button {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
 
-/* 3. Находим кнопку открытия сайдбара и принудительно 
-      отрисовываем её в левом верхнем углу, игнорируя скрытый хедер */
-[data-testid="collapsedControl"] {
-    display: flex !important;
+/* 4. ...А теперь принудительно возвращаем ТОЛЬКО кнопку сайдбара */
+header[data-testid="stHeader"] button[data-testid="stSidebarCollapseIcon"] {
     visibility: visible !important;
-    position: fixed !important;
-    top: 10px !important;
-    left: 10px !important;
-    z-index: 9999999 !important;
-    background-color: rgba(255, 255, 255, 0.8); /* Светлый фон для видимости */
-    border-radius: 5px;
+    pointer-events: auto !important;
+    color: #31333F !important; /* Цвет стрелочек (темно-серый) */
 }
 
-/* 4. Если кнопка слишком мелкая, добавим ей немного отступов */
-[data-testid="collapsedControl"] button {
-    padding: 5px !important;
+/* 5. Убираем текст "Share" и другие текстовые элементы справа */
+[data-testid="stHeaderActionElements"], .stAppDeployButton {
+    display: none !important;
 }
 </style>
 """
