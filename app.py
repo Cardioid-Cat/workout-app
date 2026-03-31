@@ -5,35 +5,32 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- МЕТОД ТОЧЕЧНОЙ ПРОЗРАЧНОСТИ ---
+# --- МЕТОД ОТРИЦАТЕЛЬНОГО ОТСТУПА ---
 hide_st_style = """
 <style>
-/* 1. Скрываем стандартное меню (три точки) и футер */
+/* 1. Убираем стандартное меню и футер */
 #MainMenu {visibility: hidden !important;}
 footer {visibility: hidden !important;}
 
-/* 2. Делаем весь хедер прозрачным, чтобы он не перекрывал контент */
-header[data-testid="stHeader"] {
-    background-color: rgba(0,0,0,0) !important;
-    color: rgba(0,0,0,0) !important;
+/* 2. Растягиваем контейнер хедера и смещаем его вправо, 
+      чтобы кнопки Share/Deploy улетели за край экрана */
+header[data-testid="stHeader"] > div:first-child {
+    width: 200% !important;
+    margin-right: -100% !important;
 }
 
-/* 3. Делаем невидимыми ВСЕ кнопки в хедере... */
-header[data-testid="stHeader"] button {
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-/* 4. ...А теперь принудительно возвращаем ТОЛЬКО кнопку сайдбара */
-header[data-testid="stHeader"] button[data-testid="stSidebarCollapseIcon"] {
+/* 3. Кнопка сайдбара находится в левой части, она останется в зоне видимости.
+      Принудительно задаем ей цвет, чтобы она была заметна. */
+button[data-testid="stSidebarCollapseIcon"] {
     visibility: visible !important;
-    pointer-events: auto !important;
-    color: #31333F !important; /* Цвет стрелочек (темно-серый) */
+    display: flex !important;
+    color: #31333F !important; /* Для темной темы замени на white */
 }
 
-/* 5. Убираем текст "Share" и другие текстовые элементы справа */
+/* 4. На всякий случай блокируем клики по невидимым областям справа */
 [data-testid="stHeaderActionElements"], .stAppDeployButton {
-    display: none !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
 }
 </style>
 """
