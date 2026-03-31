@@ -5,14 +5,24 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- БЛОК СКРЫТИЯ (Кнопка меню СЛЕВА останется, ПРАВАЯ часть скроется) ---
+# --- ФИНАЛЬНЫЙ БЛОК СКРЫТИЯ (Чистим правую часть в ноль, лево не трогаем) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
-            .stAppDeployButton {display:none;}
-            /* Скрываем только элементы в правой части хедера (Deploy, GitHub и т.д.) */
-            [data-testid="stHeaderActionElements"] {display: none;}
+            header {background-color: rgba(0,0,0,0);} /* Делаем фон прозрачным на всякий случай */
+            
+            /* Скрываем кнопки деплоя, поделиться и иконки GitHub */
+            [data-testid="stHeaderActionElements"], 
+            .stAppDeployButton, 
+            header [role="navigation"] {
+                display: none !important;
+            }
+            
+            /* Убираем лишние отступы справа, чтобы ничего не накладывалось */
+            [data-testid="stHeader"] {
+                right: 0px;
+            }
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
