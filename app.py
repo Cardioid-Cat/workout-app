@@ -5,34 +5,34 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ХИРУРГИЧЕСКОЕ СКРЫТИЕ (ТОЛЬКО ПРАВАЯ ЧАСТЬ) ---
+# --- МЕТОД "ВЫНОС КНОПКИ ЗА ПРЕДЕЛЫ ХЕДЕРА" ---
 hide_st_style = """
 <style>
-/* 1. Убираем стандартное меню (три точки) и футер */
+/* 1. Полностью скрываем весь стандартный хедер (вместе со всеми кнопками) */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* 2. Убираем футер и главное меню */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
-/* 2. Прячем правую панель (Share, Star, GitHub). Используем оба варианта названия, 
-      которые использует Streamlit в разных версиях */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
-[data-testid="stHeaderActionElements"] {
-    display: none !important;
-}
-
-/* 3. Убиваем кнопку Deploy (у нее всегда своя жизнь и отдельный класс) */
-.stAppDeployButton {
-    display: none !important;
-}
-
-/* 4. ЯВНО ЗАЩИЩАЕМ левую кнопку (стрелочки). 
-      Принудительно делаем её видимой поверх всего */
+/* 3. Находим кнопку открытия сайдбара и принудительно 
+      отрисовываем её в левом верхнем углу, игнорируя скрытый хедер */
 [data-testid="collapsedControl"] {
     display: flex !important;
     visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 99999 !important;
+    position: fixed !important;
+    top: 10px !important;
+    left: 10px !important;
+    z-index: 9999999 !important;
+    background-color: rgba(255, 255, 255, 0.8); /* Светлый фон для видимости */
+    border-radius: 5px;
+}
+
+/* 4. Если кнопка слишком мелкая, добавим ей немного отступов */
+[data-testid="collapsedControl"] button {
+    padding: 5px !important;
 }
 </style>
 """
