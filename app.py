@@ -5,14 +5,14 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ (Кнопка меню для телефона теперь видна!) ---
+# --- БЛОК СКРЫТИЯ (Кнопка меню СЛЕВА останется, ПРАВАЯ часть скроется) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             .stAppDeployButton {display:none;}
-            /* Скрываем только правую часть хедера, оставляя левую для кнопки сайдбара */
-            header > div:nth-child(3) {visibility: hidden;}
+            /* Скрываем только элементы в правой части хедера (Deploy, GitHub и т.д.) */
+            [data-testid="stHeaderActionElements"] {display: none;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -68,7 +68,7 @@ if not room_slug:
         
         if st.button("Создать комнату", type="primary"):
             if not new_title.strip() or not new_slug.strip() or not new_pass.strip():
-                st.warning("⚠️ Поля 'Название', 'Адрес' и 'Пароль' не могут быть пустыми или состоять только из пробелов!")
+                st.warning("⚠️ Поля 'Название', 'Адрес' и 'Пароль' не могут быть пустыми!")
             else:
                 try:
                     clean_slug = new_slug.lower().strip()
