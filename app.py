@@ -5,23 +5,20 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ФИНАЛЬНЫЙ БЛОК СКРЫТИЯ (Чистим правую часть в ноль, лево не трогаем) ---
+# --- ОБНОВЛЕННЫЙ БЛОК СКРЫТИЯ (Убирает только правую часть хедера) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
-            header {background-color: rgba(0,0,0,0);} /* Делаем фон прозрачным на всякий случай */
             
-            /* Скрываем кнопки деплоя, поделиться и иконки GitHub */
-            [data-testid="stHeaderActionElements"], 
-            .stAppDeployButton, 
-            header [role="navigation"] {
+            /* Скрываем только правую часть хедера (кнопки GitHub, Share и т.д.) */
+            [data-testid="stHeaderActionElements"] {
                 display: none !important;
             }
             
-            /* Убираем лишние отступы справа, чтобы ничего не накладывалось */
-            [data-testid="stHeader"] {
-                right: 0px;
+            /* Делаем сам хедер прозрачным, чтобы он не перекрывал элементы */
+            header {
+                background-color: rgba(0,0,0,0) !important;
             }
             </style>
             """
@@ -288,7 +285,7 @@ if st.session_state.get(auth_key):
                     for p in profiles:
                         if p['id'] not in winner_ids:
                             add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
-                    send_tg_notification(f"🏆 {', '.join(winners)} победили в '{sel_g}'! Остальные получили долг.")
+                    send_tg_notification(f"🏆 {', '.join(winners)} победили in '{sel_g}'! Остальные получили долг.")
                     st.rerun()
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
@@ -314,10 +311,10 @@ else: st.info("Побед пока нет.")
 st.subheader("📊 Текущие долги")
 summary = {}
 for l in logs:
-    name, ex, amt = l['profiles']['name'], l['exercise_type'], l['amount']
-    if "🏆" in ex: continue
-    summary.setdefault(name, {}).setdefault(ex, 0)
-    summary[name][ex] += amt
+    name, x, amt = l['profiles']['name'], l['exercise_type'], l['amount']
+    if "🏆" in x: continue
+    summary.setdefault(name, {}).setdefault(x, 0)
+    summary[name][x] += amt
 
 for name, debts in summary.items():
     active = {k: v for k, v in debts.items() if v != 0}
