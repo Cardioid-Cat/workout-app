@@ -6,27 +6,38 @@ from postgrest.exceptions import APIError
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
 # --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
+# --- МЕТОД "НЕВИДИМЫЙ ЩИТ" ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
             
-            /* Скрываем контейнер со всеми кнопками справа (Deploy, Share, Star, GitHub) */
+            /* Создаем невидимый блок поверх правой части хедера */
+            header[data-testid="stHeader"]::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 300px; /* Ширина области с кнопками */
+                height: 100%;
+                background-color: white; /* Цвет фона твоего приложения */
+                z-index: 9999999;
+            }
+
+            /* Скрываем всё содержимое правой части хедера напрямую */
             [data-testid="stHeaderActionElements"], 
-            .stAppDeployButton,
-            header [role="navigation"] {
+            .stAppDeployButton, 
+            header [role="navigation"],
+            header button {
                 display: none !important;
+                opacity: 0 !important;
+                width: 0 !important;
             }
 
-            /* Убираем лишние отступы в хедере, чтобы кнопки не занимали место */
-            header[data-testid="stHeader"] {
-                background-color: rgba(0,0,0,0);
-                right: 0px;
-            }
-
-            /* Если кнопки всё еще видны, этот селектор скроет их через прозрачность */
-            header > div:nth-child(1) > div:nth-child(2) {
-                display: none !important;
+            /* Оставляем только кнопку сайдбара слева */
+            [data-testid="stSidebarCollapseIcon"] {
+                visibility: visible !important;
+                z-index: 10000000 !important;
             }
             </style>
             """
