@@ -6,38 +6,31 @@ from postgrest.exceptions import APIError
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
 # --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
-# --- МЕТОД "НЕВИДИМЫЙ ЩИТ" ---
+# --- ТОЧЕЧНОЕ СКРЫТИЕ (Только правая часть) ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden !important;}
-            footer {visibility: hidden !important;}
-            
-            /* Создаем невидимый блок поверх правой части хедера */
-            header[data-testid="stHeader"]::before {
-                content: "";
-                position: absolute;
-                top: 0;
-                right: 0;
-                width: 300px; /* Ширина области с кнопками */
-                height: 100%;
-                background-color: white; /* Цвет фона твоего приложения */
-                z-index: 9999999;
-            }
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
 
-            /* Скрываем всё содержимое правой части хедера напрямую */
-            [data-testid="stHeaderActionElements"], 
-            .stAppDeployButton, 
-            header [role="navigation"],
-            header button {
+            /* 1. Скрываем конкретный контейнер с кнопками справа */
+            [data-testid="stHeaderActionElements"] {
                 display: none !important;
-                opacity: 0 !important;
-                width: 0 !important;
             }
 
-            /* Оставляем только кнопку сайдбара слева */
-            [data-testid="stSidebarCollapseIcon"] {
+            /* 2. Скрываем кнопку Deploy (у нее отдельный класс) */
+            .stAppDeployButton {
+                display: none !important;
+            }
+
+            /* 3. Убираем иконку GitHub и дополнительные кнопки навигации */
+            header [role="navigation"] {
+                display: none !important;
+            }
+            
+            /* 4. Принудительно закрепляем видимость кнопки сайдбара */
+            button[data-testid="stSidebarCollapseIcon"] {
                 visibility: visible !important;
-                z-index: 10000000 !important;
+                display: flex !important;
             }
             </style>
             """
