@@ -5,13 +5,12 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ (Стрелочка меню теперь видна!) ---
+# --- БЛОК СКРЫТИЯ (Кнопка меню слева ОСТАЕТСЯ) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             .stAppDeployButton {display:none;}
-            /* Скрываем только ссылки в хедере, но оставляем сам хедер для кнопки меню */
             header > div:nth-child(3) {visibility: hidden;}
             </style>
             """
@@ -59,13 +58,13 @@ if not room_slug:
     st.title("🚀 Workout SaaS: Создать комнату")
     with st.container(border=True):
         new_title = st.text_input("Название (напр: Моя Качалка)")
-        new_slug = st.text_input("Придумайте адрес для ссылки (напр: matrix)")
+        new_slug = st.text_input("Придумайте адрес для ссылки")
         new_pass = st.text_input("Пароль админа", type="password")
         new_tg_chat = st.text_input("ID чата в Telegram (необязательно)")
         
         if st.button("Создать комнату", type="primary"):
             if not new_title.strip() or not new_slug.strip() or not new_pass.strip():
-                st.warning("⚠️ Поля 'Название', 'Адрес' и 'Пароль' не могут быть пустыми.")
+                st.warning("⚠️ Поля не могут быть пустыми или состоять из пробелов.")
             else:
                 try:
                     clean_slug = new_slug.lower().strip()
@@ -75,8 +74,7 @@ if not room_slug:
                     }).execute()
                     st.success("✅ Комната создана!")
                     st.code(f"https://workout-app-o8dt87vxa4t4a8nsr49oc3.streamlit.app/?room={clean_slug}")
-                except Exception: 
-                    st.error("Этот адрес уже занят.")
+                except: st.error("Ошибка: адрес занят.")
     st.stop()
 
 room = get_room_data(room_slug)
@@ -87,7 +85,7 @@ if not room:
 room_id = room['id']
 auth_key = f"auth_{room_id}"
 
-# --- ФУНКЦИИ И ЛОГИКА ---
+# --- ФУНКЦИИ УВЕДОМЛЕНИЙ И ЗАПИСЕЙ ---
 def send_tg_notification(text):
     current_chat_id = room.get("tg_chat_id")
     if not tg_token or not current_chat_id: return
@@ -98,7 +96,7 @@ def send_tg_notification(text):
 
 def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False):
     if not str(val).strip():
-        st.warning("⚠️ Введите значение.")
+        if not silent: st.warning("⚠️ Введите число или время.")
         return
     amount = time_to_seconds(val) if is_time else int(val)
     if amount == 0: return
@@ -113,12 +111,14 @@ def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False
         send_tg_notification(f"⚖️ {u_name} {action}: {ex_name} ({val})")
         st.rerun()
 
+# --- ЗАГРУЗКА ---
 profiles = supabase.table("profiles").select("*").eq("room_id", room_id).order("name").execute().data
 ex_types_data = supabase.table("exercise_types").select("name, unit_type").eq("room_id", room_id).execute().data
 ex_unit_map = {ex['name']: ex['unit_type'] for ex in ex_types_data}
 games_data = supabase.table("games_presets").select("*").eq("room_id", room_id).order("game_name").execute().data
 logs = supabase.table("workout_logs").select("id, amount, exercise_type, profiles(name)").eq("room_id", room_id).order("created_at", desc=True).execute().data
 
+# --- ИНТЕРФЕЙС (САЙДБАР) ---
 st.title(f"💪 {room['title']}")
 
 with st.sidebar:
@@ -141,43 +141,42 @@ with st.sidebar:
             with st.form("g_form", clear_on_submit=True):
                 n_g = st.text_input("Название игры")
                 n_e = st.selectbox("Упражнение наказания", list(ex_unit_map.keys()))
-                n_v = st.text_input("Значение (кол-во или мин:сек)")
+                n_v = st.text_input("Значение")
                 if st.form_submit_button("Сохранить игру"):
-                    if not n_g.strip() or not n_v.strip():
-                        st.warning("⚠️ Название игры и значение не могут быть пустыми.")
+                    if not n_g.strip() or not n_v.strip(): st.warning("Заполните поля")
                     else:
-                        try:
-                            supabase.table("games_presets").insert({
-                                "game_name": n_g.strip(), "ex_name": n_e, "val": n_v.strip(), 
-                                "unit_type": ex_unit_map.get(n_e), "room_id": room_id
-                            }).execute()
-                            st.rerun()
-                        except: st.error("Ошибка добавления.")
+                        supabase.table("games_presets").insert({"game_name": n_g.strip(), "ex_name": n_e, "val": n_v.strip(), "unit_type": ex_unit_map.get(n_e), "room_id": room_id}).execute()
+                        st.rerun()
 
         with st.expander("🏋️ УПРАЖНЕНИЯ"):
             with st.form("ex_form", clear_on_submit=True):
                 e_name = st.text_input("Название")
                 e_type = st.radio("Тип", ["count", "time"])
                 if st.form_submit_button("Добавить"):
-                    if not e_name.strip():
-                        st.warning("⚠️ Название не может быть пустым.")
+                    if not e_name.strip(): st.warning("Пусто!")
                     else:
-                        try:
-                            supabase.table("exercise_types").insert({"name": e_name.strip(), "unit_type": e_type, "room_id": room_id}).execute()
-                            st.rerun()
-                        except: st.error("Уже есть.")
+                        supabase.table("exercise_types").insert({"name": e_name.strip(), "unit_type": e_type, "room_id": room_id}).execute()
+                        st.rerun()
 
         with st.expander("👤 УЧАСТНИКИ"):
             with st.form("p_form", clear_on_submit=True):
                 p_n = st.text_input("Имя")
                 if st.form_submit_button("Добавить"):
-                    if not p_n.strip():
-                        st.warning("⚠️ Имя не может быть пустым.")
+                    if not p_n.strip(): st.warning("Пусто!")
                     else:
-                        try:
-                            supabase.table("profiles").insert({"name": p_n.strip(), "room_id": room_id}).execute()
-                            st.rerun()
-                        except: st.error("Уже есть.")
+                        supabase.table("profiles").insert({"name": p_n.strip(), "room_id": room_id}).execute()
+                        st.rerun()
+        
+        # ВОТ ОНА - КНОПКА ОТМЕНЫ
+        if logs:
+            st.divider()
+            last = logs[0]
+            st.caption(f"Последнее: {last['profiles']['name']} - {last['exercise_type']}")
+            with st.popover("⬅️ Отменить"):
+                if st.button("Точно отменить?", type="primary", use_container_width=True):
+                    supabase.table("workout_logs").delete().eq("id", last['id']).execute()
+                    send_tg_notification(f"🔙 Отмена: {last['profiles']['name']} ({last['exercise_type']})")
+                    st.rerun()
 
 # --- ГЛАВНЫЙ ЭКРАН ---
 if st.session_state.get(auth_key):
@@ -197,9 +196,9 @@ if st.session_state.get(auth_key):
                     st.write(f"Выбрано: **{active}**")
                     val = st.text_input("Сколько?", key="val_input")
                     c1, c2 = st.columns(2)
-                    if c1.button("➕ Добавить", type="primary"):
+                    if c1.button("➕ Добавить", type="primary", use_container_width=True):
                         add_entry(u_id, active, val, is_time=(ex_unit_map.get(active)=="time"))
-                    if c2.button("✅ Списать"):
+                    if c2.button("✅ Списать", use_container_width=True):
                         add_entry(u_id, active, val, is_time=(ex_unit_map.get(active)=="time"), is_writeoff=True)
 
     with tab2:
@@ -208,7 +207,7 @@ if st.session_state.get(auth_key):
             sel_g = st.selectbox("Игра?", list(g_options.keys()))
             game = g_options[sel_g]
             winners = st.multiselect("Кто победил?", [p['name'] for p in profiles])
-            if st.button("🔥 Раздать долги", type="primary"):
+            if st.button("🔥 Раздать долги", type="primary", use_container_width=True):
                 if winners:
                     winner_ids = [p['id'] for p in profiles if p['name'] in winners]
                     for w_id in winner_ids:
@@ -216,7 +215,7 @@ if st.session_state.get(auth_key):
                     for p in profiles:
                         if p['id'] not in winner_ids:
                             add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
-                    send_tg_notification(f"🏆 {', '.join(winners)} победили!")
+                    send_tg_notification(f"🏆 {', '.join(winners)} победили в '{sel_g}'!")
                     st.rerun()
                 else: st.warning("Выберите победителей!")
 
