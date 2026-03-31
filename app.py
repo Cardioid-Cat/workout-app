@@ -5,39 +5,38 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
-import streamlit.components.v1 as components
-
-# --- УЛЬТИМАТИВНЫЙ ВАРИАНТ ЧЕРЕЗ СТИЛИЗАЦИЮ ПЕРЕМЕННЫХ ---
+# --- УЛЬТИМАТИВНОЕ СКРЫТИЕ ЧЕРЕЗ ФИЛЬТРЫ ---
 hide_st_style = """
             <style>
-            /* Скрываем стандартные элементы меню и футера */
             #MainMenu {visibility: hidden !important;}
             footer {visibility: hidden !important;}
-            
-            /* Схлопываем правую часть хедера в 0, чтобы кнопки не занимали место и не рисовались */
-            header[data-testid="stHeader"] > div:first-child > div:nth-child(2) {
-                display: none !important;
+
+            /* Скрываем весь правый контейнер через прозрачность и запрет кликов */
+            [data-testid="stHeaderActionElements"], 
+            header > div:nth-child(1) > div:nth-child(2),
+            .stAppDeployButton {
+                opacity: 0 !important;
+                pointer-events: none !important;
                 width: 0 !important;
                 height: 0 !important;
-                overflow: hidden !important;
-            }
-
-            /* Убираем кнопку Deploy через атрибут (самый частый выживший) */
-            .stAppDeployButton {
                 display: none !important;
             }
 
-            /* Гарантируем, что кнопка открытия сайдбара слева останется */
-            [data-testid="stSidebarCollapseIcon"] {
-                visibility: visible !important;
-                display: block !important;
+            /* Если кнопки всё равно пробиваются, накладываем на них "невидимость" */
+            header button:not([data-testid="stSidebarCollapseIcon"]) {
+                display: none !important;
             }
 
-            /* Убираем верхнюю белую полосу-разделитель, которая может остаться */
-            header {
-                border-bottom: none !important;
+            /* Оставляем кнопку сайдбара и убираем фон у хедера */
+            header[data-testid="stHeader"] {
                 background-color: transparent !important;
+                border: none !important;
+            }
+            
+            [data-testid="stSidebarCollapseIcon"] {
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
             }
             </style>
             """
