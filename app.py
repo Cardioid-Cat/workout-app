@@ -5,39 +5,25 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ВОЗВРАЩАЕМ КНОПКУ МЕНЮ, СКРЫВАЯ ОСТАЛЬНОЕ ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden !important;}
-            footer {visibility: hidden !important;}
+            /* Скрываем старое меню и футер */
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
 
-            /* 1. Скрываем контейнер с кнопками Share/Deploy справа */
-            [data-testid="stHeaderActionElements"] {
+            /* Скрываем НОВЫЙ тулбар Streamlit (версии 1.31+) */
+            [data-testid="stToolbar"] {
                 display: none !important;
             }
 
-            /* 2. Скрываем кнопку Deploy по классу */
-            .stAppDeployButton {
+            /* На всякий случай бьем по внутренним элементам тулбара */
+            [data-testid="stToolbarActions"] {
                 display: none !important;
             }
 
-            /* 3. Магия: скрываем все блоки внутри хедера, 
-               но принудительно показываем тот, где лежит иконка сайдбара */
-            header[data-testid="stHeader"] div:has(> button[data-testid="stSidebarCollapseIcon"]) {
-                display: flex !important;
-            }
-
-            /* 4. Явно прописываем стили для самой кнопки меню */
-            button[data-testid="stSidebarCollapseIcon"] {
-                display: inline-flex !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                z-index: 9999 !important;
-            }
-
-            /* 5. Убираем лишние элементы навигации, если они есть */
-            header [role="navigation"] {
-                display: none !important;
+            /* Кнопка сайдбара в новых версиях имеет свой отдельный testid */
+            [data-testid="collapsedControl"] {
+                display: block !important;
             }
             </style>
             """
