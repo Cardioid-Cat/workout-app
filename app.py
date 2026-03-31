@@ -5,20 +5,28 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- ОБНОВЛЕННЫЙ БЛОК СКРЫТИЯ (Убирает только правую часть хедера) ---
+# --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             
-            /* Скрываем только правую часть хедера (кнопки GitHub, Share и т.д.) */
-            [data-testid="stHeaderActionElements"] {
+            /* Скрываем контейнер со всеми кнопками справа (Deploy, Share, Star, GitHub) */
+            [data-testid="stHeaderActionElements"], 
+            .stAppDeployButton,
+            header [role="navigation"] {
                 display: none !important;
             }
-            
-            /* Делаем сам хедер прозрачным, чтобы он не перекрывал элементы */
-            header {
-                background-color: rgba(0,0,0,0) !important;
+
+            /* Убираем лишние отступы в хедере, чтобы кнопки не занимали место */
+            header[data-testid="stHeader"] {
+                background-color: rgba(0,0,0,0);
+                right: 0px;
+            }
+
+            /* Если кнопки всё еще видны, этот селектор скроет их через прозрачность */
+            header > div:nth-child(1) > div:nth-child(2) {
+                display: none !important;
             }
             </style>
             """
