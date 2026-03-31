@@ -5,28 +5,37 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
+# --- ХИРУРГИЧЕСКОЕ СКРЫТИЕ (ТОЛЬКО ПРАВАЯ ЧАСТЬ) ---
 hide_st_style = """
-            <style>
-            /* Скрываем старое меню и футер */
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
+<style>
+/* 1. Убираем стандартное меню (три точки) и футер */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
 
-            /* Скрываем НОВЫЙ тулбар Streamlit (версии 1.31+) */
-            [data-testid="stToolbar"] {
-                display: none !important;
-            }
+/* 2. Прячем правую панель (Share, Star, GitHub). Используем оба варианта названия, 
+      которые использует Streamlit в разных версиях */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+[data-testid="stHeaderActionElements"] {
+    display: none !important;
+}
 
-            /* На всякий случай бьем по внутренним элементам тулбара */
-            [data-testid="stToolbarActions"] {
-                display: none !important;
-            }
+/* 3. Убиваем кнопку Deploy (у нее всегда своя жизнь и отдельный класс) */
+.stAppDeployButton {
+    display: none !important;
+}
 
-            /* Кнопка сайдбара в новых версиях имеет свой отдельный testid */
-            [data-testid="collapsedControl"] {
-                display: block !important;
-            }
-            </style>
-            """
+/* 4. ЯВНО ЗАЩИЩАЕМ левую кнопку (стрелочки). 
+      Принудительно делаем её видимой поверх всего */
+[data-testid="collapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 99999 !important;
+}
+</style>
+"""
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
