@@ -6,39 +6,45 @@ from postgrest.exceptions import APIError
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
 # --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
-# --- ИНЪЕКЦИЯ СТИЛЕЙ ЧЕРЕЗ КОРНЕВОЙ КОНТЕЙНЕР ---
-hide_st_style = """
-            <style>
-            /* Скрываем футер и главное меню (три точки) */
-            #MainMenu {visibility: hidden !important;}
-            footer {visibility: hidden !important;}
-            
-            /* Скрываем правую часть хедера через атрибуты данных */
-            [data-testid="stHeaderActionElements"] {
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
+import streamlit.components.v1 as components
 
-            /* Точечно убираем кнопку Deploy, которая часто "выживает" */
-            .stAppDeployButton {
-                display: none !important;
-            }
+# --- УЛЬТИМАТИВНОЕ СКРЫТИЕ ЧЕРЕЗ JS (Убирает кнопки Share, Deploy и т.д.) ---
+js_cleaner = """
+<script>
+    function cleanHeader() {
+        // Находим все элементы в правой части хедера
+        const actionElements = window.parent.document.querySelector('[data-testid="stHeaderActionElements"]');
+        const deployButton = window.parent.document.querySelector('.stAppDeployButton');
+        const nav = window.parent.document.querySelector('header [role="navigation"]');
+        const mainMenu = window.parent.document.getElementById('MainMenu');
+        const footer = window.parent.document.querySelector('footer');
 
-            /* Убираем ссылки на GitHub и прочую навигацию в шапке */
-            header [role="navigation"] {
-                display: none !important;
-            }
+        // Удаляем их, если они существуют
+        if (actionElements) actionElements.style.display = 'none';
+        if (deployButton) deployButton.style.display = 'none';
+        if (nav) nav.style.display = 'none';
+        if (mainMenu) mainMenu.style.visibility = 'hidden';
+        if (footer) footer.style.visibility = 'hidden';
+    }
 
-            /* ПРИНУДИТЕЛЬНО оставляем кнопку сайдбара видимой и активной */
-            header button[data-testid="stSidebarCollapseIcon"] {
-                opacity: 1 !important;
-                visibility: visible !important;
-                pointer-events: auto !important;
-                display: flex !important;
-            }
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+    // Запускаем очистку сразу и через небольшие промежутки (на случай динамической подгрузки)
+    setInterval(cleanHeader, 500);
+</script>
+"""
+# Вставляем невидимый компонент с JS
+components.html(js_cleaner, height=0)
+
+# Дополнительно оставляем CSS для подстраховки
+st.markdown("""
+    <style>
+    [data-testid="stHeaderActionElements"], .stAppDeployButton, header [role="navigation"] {
+        display: none !important;
+    }
+    #MainMenu, footer {
+        visibility: hidden !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
 try:
