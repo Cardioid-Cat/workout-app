@@ -1,7 +1,7 @@
 import streamlit as st
 from supabase import create_client, Client
 import requests
-from postgrest.exceptions import APIError  # Импортируем для обработки дублей
+from postgrest.exceptions import APIError 
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
@@ -143,8 +143,7 @@ with st.sidebar:
                             st.error(f"Игра '{n_g}' уже существует!")
                         elif "unique_game_setup_per_room" in err_msg:
                             st.error(f"Наказание {n_v} ({n_e}) уже используется в другой игре!")
-                        else:
-                            st.error("Такая игра или наказание уже добавлены!")
+                        else: st.error("Такая игра или наказание уже добавлены!")
 
             for g in games_data:
                 c1, c2 = st.columns([4,1])
@@ -165,8 +164,7 @@ with st.sidebar:
                     except APIError as e:
                         if "duplicate key" in str(e).lower():
                             st.error(f"Упражнение '{e_name}' уже добавлено!")
-                        else:
-                            st.error("Ошибка при добавлению упражнения.")
+                        else: st.error("Ошибка при добавлению упражнения.")
 
             for name in ex_unit_map.keys():
                 c1, c2 = st.columns([4,1])
@@ -186,8 +184,7 @@ with st.sidebar:
                     except APIError as e:
                         if "duplicate key" in str(e).lower():
                             st.error(f"Участник '{p_n}' уже в списке!")
-                        else:
-                            st.error("Ошибка при добавлении участника.")
+                        else: st.error("Ошибка при добавлении участника.")
 
             for p in profiles:
                 c1, c2 = st.columns([4,1])
@@ -207,7 +204,7 @@ with st.sidebar:
                     send_tg_notification(f"🔙 Отмена: '{last['exercise_type']}' для {last['profiles']['name']} удалена.")
                     st.rerun()
 
-# --- ГЛАВНЫЙ ЭКРАН (АДМИН-ПАНЕЛЬ) ---
+# --- ГЛАВНЫЙ ЭКРАН (АДМИН) ---
 if st.session_state.get(auth_key):
     tab1, tab2 = st.tabs(["📝 Ввод", "🎲 Игра"])
     
@@ -254,28 +251,24 @@ if st.session_state.get(auth_key):
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
 
-# --- ПУБЛИЧНЫЙ БЛОК (ВИДЯТ ВСЕ) ---
+# --- ПУБЛИЧНЫЙ БЛОК ---
 st.divider()
 
-# Зал славы (публичный)
+# Зал славы
 st.subheader("🥇 Рейтинг чемпионов")
 hof = {}
 for l in logs:
     if "🏆" in l['exercise_type']:
         n = l['profiles']['name']
         hof[n] = hof.get(n, 0) + 1
-
 if hof:
     sorted_hof = sorted(hof.items(), key=lambda x: x[1], reverse=True)
-    cols_hof = st.columns(len(sorted_hof) if len(sorted_hof) < 5 else 5)
     for i, (name, count) in enumerate(sorted_hof):
         medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
-        with cols_hof[i % 5]:
-            st.metric(label=f"{medal} {name}", value=count)
-else:
-    st.info("Побед пока нет.")
+        st.write(f"{medal} **{name}**: {plural_wins(count)}")
+else: st.info("Побед пока нет.")
 
-# Текущие долги (публичные)
+# Долги (СТРОГО В СТОЛБИК)
 st.subheader("📊 Текущие долги")
 summary = {}
 for l in logs:
@@ -288,8 +281,6 @@ for name, debts in summary.items():
     active = {k: v for k, v in debts.items() if v != 0}
     if active:
         with st.expander(f"👤 {name}", expanded=True):
-            cols_d = st.columns(3)
-            for j, (ex, total) in enumerate(active.items()):
+            for ex, total in active.items():
                 val = seconds_to_str(total) if ex_unit_map.get(ex) == "time" else total
-                with cols_d[j % 3]:
-                    st.write(f"**{ex}**: {val}")
+                st.write(f"**{ex}**: {val}") # ТУТ СТОЛБИК
