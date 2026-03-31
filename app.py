@@ -6,30 +6,34 @@ from postgrest.exceptions import APIError
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
 # --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
-# --- ТОЧЕЧНОЕ СКРЫТИЕ (Только правая часть) ---
+# --- ИНЪЕКЦИЯ СТИЛЕЙ ЧЕРЕЗ КОРНЕВОЙ КОНТЕЙНЕР ---
 hide_st_style = """
             <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-
-            /* 1. Скрываем конкретный контейнер с кнопками справа */
+            /* Скрываем футер и главное меню (три точки) */
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
+            
+            /* Скрываем правую часть хедера через атрибуты данных */
             [data-testid="stHeaderActionElements"] {
-                display: none !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
             }
 
-            /* 2. Скрываем кнопку Deploy (у нее отдельный класс) */
+            /* Точечно убираем кнопку Deploy, которая часто "выживает" */
             .stAppDeployButton {
                 display: none !important;
             }
 
-            /* 3. Убираем иконку GitHub и дополнительные кнопки навигации */
+            /* Убираем ссылки на GitHub и прочую навигацию в шапке */
             header [role="navigation"] {
                 display: none !important;
             }
-            
-            /* 4. Принудительно закрепляем видимость кнопки сайдбара */
-            button[data-testid="stSidebarCollapseIcon"] {
+
+            /* ПРИНУДИТЕЛЬНО оставляем кнопку сайдбара видимой и активной */
+            header button[data-testid="stSidebarCollapseIcon"] {
+                opacity: 1 !important;
                 visibility: visible !important;
+                pointer-events: auto !important;
                 display: flex !important;
             }
             </style>
