@@ -1,12 +1,15 @@
 name: WakeUpStreamlit
+
 on:
   schedule:
-    - cron: '0 */4 * * *'  # Запуск каждые 4 часа
-  workflow_dispatch:      # Оставляем возможность ручного запуска
+    # Запуск каждые 30 минут (оптимально для поддержания активности)
+    - cron: '*/30 * * * *'
+  workflow_dispatch: # Оставляем ручной запуск
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Send request to app
-        run: curl -I https://9oc3.streamlit.app
+      - name: Send realistic request to app
+        run: |
+          curl -I -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" https://workout-app-o8dt87vxa4t4a8nsr49oc3.streamlit.app/
