@@ -5,38 +5,39 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- УЛЬТИМАТИВНОЕ СКРЫТИЕ ЧЕРЕЗ ФИЛЬТРЫ ---
+# --- ВОЗВРАЩАЕМ КНОПКУ МЕНЮ, СКРЫВАЯ ОСТАЛЬНОЕ ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden !important;}
             footer {visibility: hidden !important;}
 
-            /* Скрываем весь правый контейнер через прозрачность и запрет кликов */
-            [data-testid="stHeaderActionElements"], 
-            header > div:nth-child(1) > div:nth-child(2),
+            /* 1. Скрываем контейнер с кнопками Share/Deploy справа */
+            [data-testid="stHeaderActionElements"] {
+                display: none !important;
+            }
+
+            /* 2. Скрываем кнопку Deploy по классу */
             .stAppDeployButton {
-                opacity: 0 !important;
-                pointer-events: none !important;
-                width: 0 !important;
-                height: 0 !important;
                 display: none !important;
             }
 
-            /* Если кнопки всё равно пробиваются, накладываем на них "невидимость" */
-            header button:not([data-testid="stSidebarCollapseIcon"]) {
-                display: none !important;
+            /* 3. Магия: скрываем все блоки внутри хедера, 
+               но принудительно показываем тот, где лежит иконка сайдбара */
+            header[data-testid="stHeader"] div:has(> button[data-testid="stSidebarCollapseIcon"]) {
+                display: flex !important;
             }
 
-            /* Оставляем кнопку сайдбара и убираем фон у хедера */
-            header[data-testid="stHeader"] {
-                background-color: transparent !important;
-                border: none !important;
-            }
-            
-            [data-testid="stSidebarCollapseIcon"] {
+            /* 4. Явно прописываем стили для самой кнопки меню */
+            button[data-testid="stSidebarCollapseIcon"] {
+                display: inline-flex !important;
                 visibility: visible !important;
                 opacity: 1 !important;
-                pointer-events: auto !important;
+                z-index: 9999 !important;
+            }
+
+            /* 5. Убираем лишние элементы навигации, если они есть */
+            header [role="navigation"] {
+                display: none !important;
             }
             </style>
             """
