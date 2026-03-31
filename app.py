@@ -8,43 +8,40 @@ st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide"
 # --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ ---
 import streamlit.components.v1 as components
 
-# --- УЛЬТИМАТИВНОЕ СКРЫТИЕ ЧЕРЕЗ JS (Убирает кнопки Share, Deploy и т.д.) ---
-js_cleaner = """
-<script>
-    function cleanHeader() {
-        // Находим все элементы в правой части хедера
-        const actionElements = window.parent.document.querySelector('[data-testid="stHeaderActionElements"]');
-        const deployButton = window.parent.document.querySelector('.stAppDeployButton');
-        const nav = window.parent.document.querySelector('header [role="navigation"]');
-        const mainMenu = window.parent.document.getElementById('MainMenu');
-        const footer = window.parent.document.querySelector('footer');
+# --- УЛЬТИМАТИВНЫЙ ВАРИАНТ ЧЕРЕЗ СТИЛИЗАЦИЮ ПЕРЕМЕННЫХ ---
+hide_st_style = """
+            <style>
+            /* Скрываем стандартные элементы меню и футера */
+            #MainMenu {visibility: hidden !important;}
+            footer {visibility: hidden !important;}
+            
+            /* Схлопываем правую часть хедера в 0, чтобы кнопки не занимали место и не рисовались */
+            header[data-testid="stHeader"] > div:first-child > div:nth-child(2) {
+                display: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                overflow: hidden !important;
+            }
 
-        // Удаляем их, если они существуют
-        if (actionElements) actionElements.style.display = 'none';
-        if (deployButton) deployButton.style.display = 'none';
-        if (nav) nav.style.display = 'none';
-        if (mainMenu) mainMenu.style.visibility = 'hidden';
-        if (footer) footer.style.visibility = 'hidden';
-    }
+            /* Убираем кнопку Deploy через атрибут (самый частый выживший) */
+            .stAppDeployButton {
+                display: none !important;
+            }
 
-    // Запускаем очистку сразу и через небольшие промежутки (на случай динамической подгрузки)
-    setInterval(cleanHeader, 500);
-</script>
-"""
-# Вставляем невидимый компонент с JS
-components.html(js_cleaner, height=0)
+            /* Гарантируем, что кнопка открытия сайдбара слева останется */
+            [data-testid="stSidebarCollapseIcon"] {
+                visibility: visible !important;
+                display: block !important;
+            }
 
-# Дополнительно оставляем CSS для подстраховки
-st.markdown("""
-    <style>
-    [data-testid="stHeaderActionElements"], .stAppDeployButton, header [role="navigation"] {
-        display: none !important;
-    }
-    #MainMenu, footer {
-        visibility: hidden !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+            /* Убираем верхнюю белую полосу-разделитель, которая может остаться */
+            header {
+                border-bottom: none !important;
+                background-color: transparent !important;
+            }
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- ИНИЦИАЛИЗАЦИЯ ---
 try:
