@@ -23,7 +23,7 @@ def get_room_data(slug):
     res = supabase.table("rooms").select("*").eq("slug", slug).execute()
     return res.data[0] if res.data else None
 
-# --- ЭКРАН СОЗДАНИЯ (Если комнаты нет в URL) ---
+# --- ЭКРАН СОЗДАНИЯ ---
 if not room_slug:
     st.title("🚀 Workout SaaS: Создать комнату")
     with st.container(border=True):
@@ -52,7 +52,7 @@ if not room:
 room_id = room['id']
 auth_key = f"auth_{room_id}"
 
-# --- ФУНКЦИИ (Твои оригинальные) ---
+# --- ФУНКЦИИ ---
 def send_tg_notification(text, is_test=False):
     if not tg_token or not tg_chat_id: return
     full_message = f"📢 @all ({room['title']})\n{text}"
@@ -95,7 +95,7 @@ def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False
         send_tg_notification(f"⚖️ {u_name} {action}: {ex_name} ({display_val})")
         st.rerun()
 
-# --- ЗАГРУЗКА ДАННЫХ ИЗ БД (С фильтром по комнате) ---
+# --- ЗАГРУЗКА ДАННЫХ ИЗ БД ---
 profiles = supabase.table("profiles").select("*").eq("room_id", room_id).order("name").execute().data
 ex_types_data = supabase.table("exercise_types").select("name, unit_type").eq("room_id", room_id).execute().data
 ex_unit_map = {ex['name']: ex['unit_type'] for ex in ex_types_data}
@@ -122,7 +122,6 @@ with st.sidebar:
             st.rerun()
 
         st.divider()
-        # 1. ИГРЫ
         with st.expander("🎲 НАСТРОЙКА ИГР"):
             with st.form("g_form", clear_on_submit=True):
                 n_g = st.text_input("Название игры")
@@ -142,7 +141,6 @@ with st.sidebar:
                         supabase.table("games_presets").delete().eq("id", g['id']).execute()
                         st.rerun()
 
-        # 2. УПРАЖНЕНИЯ
         with st.expander("🏋️ УПРАЖНЕНИЯ"):
             with st.form("ex_form", clear_on_submit=True):
                 e_name = st.text_input("Название")
@@ -158,7 +156,6 @@ with st.sidebar:
                         supabase.table("exercise_types").delete().eq("name", name).eq("room_id", room_id).execute()
                         st.rerun()
 
-        # 3. УЧАСТНИКИ
         with st.expander("👤 УЧАСТНИКИ"):
             with st.form("p_form", clear_on_submit=True):
                 p_n = st.text_input("Имя")
@@ -185,7 +182,7 @@ with st.sidebar:
 
 # --- ГЛАВНЫЙ ЭКРАН ---
 if st.session_state.get(auth_key):
-    tab1, tab2 = st.tabs(["📝 Ручной ввод", "🎲 Игра"])
+    tab1, tab2, tab3 = st.tabs(["📝 Ручной ввод", "🎲 Игра", "🏆 Зал славы"])
     
     with tab1:
         u_names = [p['name'] for p in profiles]
@@ -208,24 +205,47 @@ if st.session_state.get(auth_key):
                         add_entry(u_id, active, val, is_time=(ex_unit_map.get(active)=="time"))
                     if c2.button("✅ Списать", use_container_width=True):
                         add_entry(u_id, active, val, is_time=(ex_unit_map.get(active)=="time"), is_writeoff=True)
-        else: st.info("Сначала добавьте участников в настройках.")
+        else: st.info("Сначала добавьте участников.")
 
     with tab2:
         if games_data:
             g_options = {g['game_name']: g for g in games_data}
             sel_g = st.selectbox("Во что играли?", list(g_options.keys()))
             game = g_options[sel_g]
-            w_name = st.selectbox("Кто победил?", [p['name'] for p in profiles])
+            
+            # НОВОЕ: Можно выбрать несколько победителей
+            winners = st.multiselect("Кто победил?", [p['name'] for p in profiles])
+            
             if st.button("🔥 Раздать долги проигравшим", type="primary", use_container_width=True):
-                w_id = next(p['id'] for p in profiles if p['name'] == w_name)
-                # Логируем победу (для истории)
-                supabase.table("workout_logs").insert({"profile_id": w_id, "exercise_type": f"🏆 Победа: {sel_g}", "amount": 1, "room_id": room_id}).execute()
-                for p in profiles:
-                    if p['id'] != w_id:
-                        add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
-                send_tg_notification(f"🏆 {w_name} выиграл(а) в '{sel_g}'! Проигравшим начислен долг: {game['ex_name']} ({game['val']}).")
-                st.rerun()
-        else: st.info("Настройте пресеты игр в боковой панели.")
+                if winners:
+                    winner_ids = [p['id'] for p in profiles if p['name'] in winners]
+                    # Логируем победу для всех чемпионов
+                    for w_id in winner_ids:
+                        supabase.table("workout_logs").insert({"profile_id": w_id, "exercise_type": f"🏆 Победа: {sel_g}", "amount": 1, "room_id": room_id}).execute()
+                    
+                    # Начисляем долг всем, кто НЕ победил
+                    for p in profiles:
+                        if p['id'] not in winner_ids:
+                            add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
+                    
+                    send_tg_notification(f"🏆 {', '.join(winners)} победили в '{sel_g}'! Остальные получили долг.")
+                    st.rerun()
+                else: st.warning("Выберите хотя бы одного победителя!")
+        else: st.info("Настройте пресеты игр.")
+
+    with tab3:
+        st.subheader("🥇 Рейтинг чемпионов")
+        hof = {}
+        for l in logs:
+            if "🏆" in l['exercise_type']:
+                n = l['profiles']['name']
+                hof[n] = hof.get(n, 0) + 1
+        if hof:
+            sorted_hof = sorted(hof.items(), key=lambda x: x[1], reverse=True)
+            for i, (name, count) in enumerate(sorted_hof):
+                medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
+                st.write(f"{medal} **{name}**: {count} побед")
+        else: st.info("Побед пока нет.")
 
 st.divider()
 st.subheader("📊 Текущие долги")
