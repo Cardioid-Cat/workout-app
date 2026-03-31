@@ -47,22 +47,28 @@ if not room_slug:
     st.title("🚀 Workout SaaS: Создать комнату")
     with st.container(border=True):
         new_title = st.text_input("Название (напр: Моя Качалка)")
-        new_slug = st.text_input("ID для ссылки (напр: matrix, kachalka77)")
+        new_slug = st.text_input(
+            "Придумайте адрес для ссылки (напр: matrix, kachalka77)", 
+            help="Это слово станет частью ссылки на вашу комнату. Используйте английские буквы, цифры или дефис."
+        )
         new_pass = st.text_input("Пароль админа", type="password")
         new_tg_chat = st.text_input("ID чата в Telegram (необязательно)", help="Например: -100123456789. Сначала добавьте бота в чат!")
         
         if st.button("Создать комнату", type="primary"):
             if new_title and new_slug and new_pass:
                 try:
+                    clean_slug = new_slug.lower().strip()
                     supabase.table("rooms").insert({
-                        "slug": new_slug.lower().strip(), 
+                        "slug": clean_slug, 
                         "title": new_title, 
                         "password": new_pass,
                         "tg_chat_id": new_tg_chat if new_tg_chat else None
                     }).execute()
                     st.success("✅ Комната создана!")
-                    st.code(f"https://workout-app-o8dt87vxa4t4a8nsr49oc3.streamlit.app/?room={new_slug.lower().strip()}")
-                except: st.error("Этот ID уже занят.")
+                    st.write("Передайте эту ссылку участникам:")
+                    st.code(f"https://workout-app-o8dt87vxa4t4a8nsr49oc3.streamlit.app/?room={clean_slug}")
+                except Exception: 
+                    st.error("Этот адрес уже занят, попробуйте другое слово.")
     st.stop()
 
 room = get_room_data(room_slug)
@@ -251,7 +257,7 @@ if st.session_state.get(auth_key):
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
 
-# --- ПУБЛИЧНЫЙ БЛОК ---
+# --- ПУБЛИЧНЫЙ БЛОК (ВИДЯТ ВСЕ) ---
 st.divider()
 
 # Зал славы
@@ -283,4 +289,4 @@ for name, debts in summary.items():
         with st.expander(f"👤 {name}", expanded=True):
             for ex, total in active.items():
                 val = seconds_to_str(total) if ex_unit_map.get(ex) == "time" else total
-                st.write(f"**{ex}**: {val}") # ТУТ СТОЛБИК
+                st.write(f"**{ex}**: {val}")
