@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client, Client
 import requests
+from postgrest.exceptions import APIError  # Импортируем для обработки дублей
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
@@ -9,8 +10,6 @@ try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
-    
-    # Общий токен бота из secrets
     tg_token = st.secrets.get("TELEGRAM_BOT_TOKEN")
 except Exception as e:
     st.error(f"Ошибка конфигурации Secrets: {e}")
@@ -50,13 +49,11 @@ if not room_slug:
         new_title = st.text_input("Название (напр: Моя Качалка)")
         new_slug = st.text_input("ID для ссылки (напр: matrix, kachalka77)")
         new_pass = st.text_input("Пароль админа", type="password")
-        # ДОБАВЛЕНО: Четвертая строка для ID чата
         new_tg_chat = st.text_input("ID чата в Telegram (необязательно)", help="Например: -100123456789. Сначала добавьте бота в чат!")
         
         if st.button("Создать комнату", type="primary"):
             if new_title and new_slug and new_pass:
                 try:
-                    # Сохраняем данные, включая твой новый столбец tg_chat_id
                     supabase.table("rooms").insert({
                         "slug": new_slug.lower().strip(), 
                         "title": new_title, 
@@ -76,20 +73,14 @@ if not room:
 room_id = room['id']
 auth_key = f"auth_{room_id}"
 
-# --- ФУНКЦИЯ УВЕДОМЛЕНИЙ (ИЗМЕНЕНА) ---
+# --- ФУНКЦИЯ УВЕДОМЛЕНИЙ ---
 def send_tg_notification(text):
-    # Берем чат именно этой комнаты из базы
     current_chat_id = room.get("tg_chat_id")
-    
-    if not tg_token or not current_chat_id: 
-        return
-        
+    if not tg_token or not current_chat_id: return
     full_message = f"📢 @all ({room['title']})\n{text}"
     api_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-    try: 
-        requests.post(api_url, json={"chat_id": current_chat_id, "text": full_message}, timeout=5)
-    except: 
-        pass
+    try: requests.post(api_url, json={"chat_id": current_chat_id, "text": full_message}, timeout=5)
+    except: pass
 
 def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False):
     amount = time_to_seconds(val) if is_time else int(val)
@@ -140,11 +131,21 @@ with st.sidebar:
                 n_e = st.selectbox("Упражнение наказания", list(ex_unit_map.keys()))
                 n_v = st.text_input("Значение (кол-во или мин:сек)")
                 if st.form_submit_button("Сохранить игру"):
-                    supabase.table("games_presets").insert({
-                        "game_name": n_g, "ex_name": n_e, "val": n_v, 
-                        "unit_type": ex_unit_map.get(n_e), "room_id": room_id
-                    }).execute()
-                    st.rerun()
+                    try:
+                        supabase.table("games_presets").insert({
+                            "game_name": n_g, "ex_name": n_e, "val": n_v, 
+                            "unit_type": ex_unit_map.get(n_e), "room_id": room_id
+                        }).execute()
+                        st.rerun()
+                    except APIError as e:
+                        err_msg = str(e).lower()
+                        if "unique_game_name_per_room" in err_msg:
+                            st.error(f"Игра '{n_g}' уже существует!")
+                        elif "unique_game_setup_per_room" in err_msg:
+                            st.error(f"Наказание {n_v} ({n_e}) уже используется в другой игре!")
+                        else:
+                            st.error("Такая игра или наказание уже добавлены!")
+
             for g in games_data:
                 c1, c2 = st.columns([4,1])
                 c1.write(f"**{g['game_name']}**")
@@ -158,8 +159,15 @@ with st.sidebar:
                 e_name = st.text_input("Название")
                 e_type = st.radio("Тип", ["count", "time"], format_func=lambda x: "Кол-во" if x=="count" else "Время")
                 if st.form_submit_button("Добавить"):
-                    supabase.table("exercise_types").insert({"name": e_name, "unit_type": e_type, "room_id": room_id}).execute()
-                    st.rerun()
+                    try:
+                        supabase.table("exercise_types").insert({"name": e_name, "unit_type": e_type, "room_id": room_id}).execute()
+                        st.rerun()
+                    except APIError as e:
+                        if "duplicate key" in str(e).lower():
+                            st.error(f"Упражнение '{e_name}' уже добавлено!")
+                        else:
+                            st.error("Ошибка при добавлению упражнения.")
+
             for name in ex_unit_map.keys():
                 c1, c2 = st.columns([4,1])
                 c1.write(name)
@@ -172,8 +180,15 @@ with st.sidebar:
             with st.form("p_form", clear_on_submit=True):
                 p_n = st.text_input("Имя")
                 if st.form_submit_button("Добавить"):
-                    supabase.table("profiles").insert({"name": p_n, "room_id": room_id}).execute()
-                    st.rerun()
+                    try:
+                        supabase.table("profiles").insert({"name": p_n, "room_id": room_id}).execute()
+                        st.rerun()
+                    except APIError as e:
+                        if "duplicate key" in str(e).lower():
+                            st.error(f"Участник '{p_n}' уже в списке!")
+                        else:
+                            st.error("Ошибка при добавлении участника.")
+
             for p in profiles:
                 c1, c2 = st.columns([4,1])
                 c1.write(p['name'])
