@@ -5,6 +5,17 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
+# --- БЛОК СКРЫТИЯ МЕНЮ И КНОПОК ГИТХАБА ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            .stAppDeployButton {display:none;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 # --- ИНИЦИАЛИЗАЦИЯ ---
 try:
     url = st.secrets["SUPABASE_URL"]
@@ -252,7 +263,7 @@ if st.session_state.get(auth_key):
                     for p in profiles:
                         if p['id'] not in winner_ids:
                             add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
-                    send_tg_notification(f"🏆 {', '.join(winners)} победили в '{sel_g}'! Остальные получили долг.")
+                    send_tg_notification(f"🏆 {', '.join(winners)} победили in '{sel_g}'! Остальные получили долг.")
                     st.rerun()
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
