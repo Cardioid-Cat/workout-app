@@ -5,13 +5,14 @@ from postgrest.exceptions import APIError
 
 st.set_page_config(page_title="Workout Tracker", page_icon="💪", layout="wide")
 
-# --- БЛОК СКРЫТИЯ МЕНЮ И КНОПОК ГИТХАБА ---
+# --- ИСПРАВЛЕННЫЙ БЛОК СКРЫТИЯ (Кнопка меню для телефона теперь видна!) ---
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
             footer {visibility: hidden;}
             .stAppDeployButton {display:none;}
+            /* Скрываем только правую часть хедера, оставляя левую для кнопки сайдбара */
+            header > div:nth-child(3) {visibility: hidden;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -66,14 +67,16 @@ if not room_slug:
         new_tg_chat = st.text_input("ID чата в Telegram (необязательно)", help="Например: -100123456789. Сначала добавьте бота в чат!")
         
         if st.button("Создать комнату", type="primary"):
-            if new_title and new_slug and new_pass:
+            if not new_title.strip() or not new_slug.strip() or not new_pass.strip():
+                st.warning("⚠️ Поля 'Название', 'Адрес' и 'Пароль' не могут быть пустыми или состоять только из пробелов!")
+            else:
                 try:
                     clean_slug = new_slug.lower().strip()
                     supabase.table("rooms").insert({
                         "slug": clean_slug, 
-                        "title": new_title, 
+                        "title": new_title.strip(), 
                         "password": new_pass,
-                        "tg_chat_id": new_tg_chat if new_tg_chat else None
+                        "tg_chat_id": new_tg_chat.strip() if new_tg_chat else None
                     }).execute()
                     st.success("✅ Комната создана!")
                     st.write("Передайте эту ссылку участникам:")
@@ -100,6 +103,9 @@ def send_tg_notification(text):
     except: pass
 
 def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False):
+    if not str(val).strip():
+        if not silent: st.warning("⚠️ Введите значение (число или время)!")
+        return
     amount = time_to_seconds(val) if is_time else int(val)
     if amount == 0: return
     actual_amount = -amount if is_writeoff else amount
@@ -148,19 +154,22 @@ with st.sidebar:
                 n_e = st.selectbox("Упражнение наказания", list(ex_unit_map.keys()))
                 n_v = st.text_input("Значение (кол-во или мин:сек)")
                 if st.form_submit_button("Сохранить игру"):
-                    try:
-                        supabase.table("games_presets").insert({
-                            "game_name": n_g, "ex_name": n_e, "val": n_v, 
-                            "unit_type": ex_unit_map.get(n_e), "room_id": room_id
-                        }).execute()
-                        st.rerun()
-                    except APIError as e:
-                        err_msg = str(e).lower()
-                        if "unique_game_name_per_room" in err_msg:
-                            st.error(f"Игра '{n_g}' уже существует!")
-                        elif "unique_game_setup_per_room" in err_msg:
-                            st.error(f"Наказание {n_v} ({n_e}) уже используется в другой игре!")
-                        else: st.error("Такая игра или наказание уже добавлены!")
+                    if not n_g.strip() or not n_v.strip():
+                        st.warning("⚠️ Название игры и значение не могут быть пустыми!")
+                    else:
+                        try:
+                            supabase.table("games_presets").insert({
+                                "game_name": n_g.strip(), "ex_name": n_e, "val": n_v.strip(), 
+                                "unit_type": ex_unit_map.get(n_e), "room_id": room_id
+                            }).execute()
+                            st.rerun()
+                        except APIError as e:
+                            err_msg = str(e).lower()
+                            if "unique_game_name_per_room" in err_msg:
+                                st.error(f"Игра '{n_g}' уже существует!")
+                            elif "unique_game_setup_per_room" in err_msg:
+                                st.error(f"Наказание {n_v} ({n_e}) уже используется в другой игре!")
+                            else: st.error("Ошибка при сохранении.")
 
             for g in games_data:
                 c1, c2 = st.columns([4,1])
@@ -175,13 +184,16 @@ with st.sidebar:
                 e_name = st.text_input("Название")
                 e_type = st.radio("Тип", ["count", "time"], format_func=lambda x: "Кол-во" if x=="count" else "Время")
                 if st.form_submit_button("Добавить"):
-                    try:
-                        supabase.table("exercise_types").insert({"name": e_name, "unit_type": e_type, "room_id": room_id}).execute()
-                        st.rerun()
-                    except APIError as e:
-                        if "duplicate key" in str(e).lower():
-                            st.error(f"Упражнение '{e_name}' уже добавлено!")
-                        else: st.error("Ошибка при добавлению упражнения.")
+                    if not e_name.strip():
+                        st.warning("⚠️ Название упражнения не может быть пустым!")
+                    else:
+                        try:
+                            supabase.table("exercise_types").insert({"name": e_name.strip(), "unit_type": e_type, "room_id": room_id}).execute()
+                            st.rerun()
+                        except APIError as e:
+                            if "duplicate key" in str(e).lower():
+                                st.error(f"Упражнение '{e_name}' уже добавлено!")
+                            else: st.error("Ошибка добавления.")
 
             for name in ex_unit_map.keys():
                 c1, c2 = st.columns([4,1])
@@ -195,13 +207,16 @@ with st.sidebar:
             with st.form("p_form", clear_on_submit=True):
                 p_n = st.text_input("Имя")
                 if st.form_submit_button("Добавить"):
-                    try:
-                        supabase.table("profiles").insert({"name": p_n, "room_id": room_id}).execute()
-                        st.rerun()
-                    except APIError as e:
-                        if "duplicate key" in str(e).lower():
-                            st.error(f"Участник '{p_n}' уже в списке!")
-                        else: st.error("Ошибка при добавлении участника.")
+                    if not p_n.strip():
+                        st.warning("⚠️ Имя участника не может быть пустым!")
+                    else:
+                        try:
+                            supabase.table("profiles").insert({"name": p_n.strip(), "room_id": room_id}).execute()
+                            st.rerun()
+                        except APIError as e:
+                            if "duplicate key" in str(e).lower():
+                                st.error(f"Участник '{p_n}' уже в списке!")
+                            else: st.error("Ошибка добавления.")
 
             for p in profiles:
                 c1, c2 = st.columns([4,1])
@@ -263,7 +278,7 @@ if st.session_state.get(auth_key):
                     for p in profiles:
                         if p['id'] not in winner_ids:
                             add_entry(p['id'], game['ex_name'], game['val'], is_time=(game['unit_type']=="time"), silent=True)
-                    send_tg_notification(f"🏆 {', '.join(winners)} победили in '{sel_g}'! Остальные получили долг.")
+                    send_tg_notification(f"🏆 {', '.join(winners)} победили в '{sel_g}'! Остальные получили долг.")
                     st.rerun()
                 else: st.warning("Выберите победителей!")
         else: st.info("Настройте игры в сайдбаре.")
@@ -285,7 +300,7 @@ if hof:
         st.write(f"{medal} **{name}**: {plural_wins(count)}")
 else: st.info("Побед пока нет.")
 
-# Долги (СТРОГО В СТОЛБИК)
+# Долги
 st.subheader("📊 Текущие долги")
 summary = {}
 for l in logs:
