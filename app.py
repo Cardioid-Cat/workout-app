@@ -10,8 +10,8 @@ try:
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
     
+    # Общий токен бота из secrets
     tg_token = st.secrets.get("TELEGRAM_BOT_TOKEN")
-    tg_chat_id = st.secrets.get("TELEGRAM_CHAT_ID")
 except Exception as e:
     st.error(f"Ошибка конфигурации Secrets: {e}")
     st.stop()
@@ -22,7 +22,6 @@ def get_room_data(slug):
     return res.data[0] if res.data else None
 
 def plural_wins(n):
-    """Функция для склонения слова 'победа'"""
     n = abs(n) % 100
     n1 = n % 10
     if 10 < n < 20: return f"{n} побед"
@@ -51,13 +50,18 @@ if not room_slug:
         new_title = st.text_input("Название (напр: Моя Качалка)")
         new_slug = st.text_input("ID для ссылки (напр: matrix, kachalka77)")
         new_pass = st.text_input("Пароль админа", type="password")
+        # ДОБАВЛЕНО: Четвертая строка для ID чата
+        new_tg_chat = st.text_input("ID чата в Telegram (необязательно)", help="Например: -100123456789. Сначала добавьте бота в чат!")
+        
         if st.button("Создать комнату", type="primary"):
             if new_title and new_slug and new_pass:
                 try:
+                    # Сохраняем данные, включая твой новый столбец tg_chat_id
                     supabase.table("rooms").insert({
                         "slug": new_slug.lower().strip(), 
                         "title": new_title, 
-                        "password": new_pass
+                        "password": new_pass,
+                        "tg_chat_id": new_tg_chat if new_tg_chat else None
                     }).execute()
                     st.success("✅ Комната создана!")
                     st.code(f"https://workout-app-o8dt87vxa4t4a8nsr49oc3.streamlit.app/?room={new_slug.lower().strip()}")
@@ -72,13 +76,20 @@ if not room:
 room_id = room['id']
 auth_key = f"auth_{room_id}"
 
-# --- ФУНКЦИЯ УВЕДОМЛЕНИЙ ---
+# --- ФУНКЦИЯ УВЕДОМЛЕНИЙ (ИЗМЕНЕНА) ---
 def send_tg_notification(text):
-    if not tg_token or not tg_chat_id: return
+    # Берем чат именно этой комнаты из базы
+    current_chat_id = room.get("tg_chat_id")
+    
+    if not tg_token or not current_chat_id: 
+        return
+        
     full_message = f"📢 @all ({room['title']})\n{text}"
     api_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-    try: requests.post(api_url, json={"chat_id": tg_chat_id, "text": full_message}, timeout=5)
-    except: pass
+    try: 
+        requests.post(api_url, json={"chat_id": current_chat_id, "text": full_message}, timeout=5)
+    except: 
+        pass
 
 def add_entry(p_id, ex_name, val, is_time=False, is_writeoff=False, silent=False):
     amount = time_to_seconds(val) if is_time else int(val)
@@ -145,7 +156,6 @@ with st.sidebar:
         with st.expander("🏋️ УПРАЖНЕНИЯ"):
             with st.form("ex_form", clear_on_submit=True):
                 e_name = st.text_input("Название")
-                # ИЗМЕНЕНО: "Кол-во" вместо "Раз"
                 e_type = st.radio("Тип", ["count", "time"], format_func=lambda x: "Кол-во" if x=="count" else "Время")
                 if st.form_submit_button("Добавить"):
                     supabase.table("exercise_types").insert({"name": e_name, "unit_type": e_type, "room_id": room_id}).execute()
@@ -240,7 +250,6 @@ if st.session_state.get(auth_key):
             sorted_hof = sorted(hof.items(), key=lambda x: x[1], reverse=True)
             for i, (name, count) in enumerate(sorted_hof):
                 medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
-                # ИЗМЕНЕНО: Используем функцию склонения падежей
                 st.write(f"{medal} **{name}**: {plural_wins(count)}")
         else: st.info("Побед пока нет.")
 
